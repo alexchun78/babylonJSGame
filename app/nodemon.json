@@ -1,0 +1,6 @@
+{
+    "ignore" : [
+        "assets/"
+    ],
+    "ext": "ts, js, json, html" 
+}
