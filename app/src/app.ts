@@ -1,6 +1,4 @@
-import "@babylonjs/inspector";
-import "@babylonjs/loaders/glTF";
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } from "@babylonjs/core";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder, Color4, FreeCamera } from "@babylonjs/core";
 //enum for states
 enum State { START = 0, GAME = 1, LOSE = 2, CUTSCENE = 3 }
 
@@ -19,10 +17,10 @@ class App {
     this._engine = new Engine(this._canvas, true);
     this._scene = new Scene(this._engine);
 
-    var camera = this._setupCamera();
+    var camera = this._setupArcRotateCamera();
     var light1 = this._setupLight();
     var model = this._setupModel();
-    
+
     this._addEvent();
     this._render();
   }
@@ -36,9 +34,15 @@ class App {
     return canvas;
   }
 
-  private _setupCamera():ArcRotateCamera{
+  private _setupArcRotateCamera():ArcRotateCamera{
     const camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), this._scene);
     camera.attachControl(this._canvas, true);
+    return camera;
+  }
+
+  private _setupFreeCamera(camName:string, pos:Vector3, scene:Scene, target:Vector3):FreeCamera{
+    let camera = new FreeCamera(camName,pos,scene);
+    camera.target = target;
     return camera;
   }
 
@@ -67,11 +71,53 @@ class App {
     });
   }
 
-  private _render():void{
+  // private _render():void{
+  //   // run the main render loop
+  //   this._engine.runRenderLoop(() => {
+  //     this._scene.render();
+  //   });
+  // }
+
+  private async _render():Promise<void>{
+    await this._goToStart();
     // run the main render loop
     this._engine.runRenderLoop(() => {
-      this._scene.render();
+
+      switch(this._state){
+        case State.START:
+          this._scene.render();
+          break;
+        case State.CUTSCENE:
+            this._scene.render();
+            break;
+        case State.GAME:
+          this._scene.render();
+          break;
+        case State.LOSE:
+          this._scene.render();
+          break;
+        default: break;
+      }
+
+      // resize 
+      window.addEventListener('resize', ()=>{
+        this._engine.resize();
+      })
+
     });
   }
+
+  private async _goToStart():Promise<void>{
+    // 로딩 UI 표시
+    this._engine.displayLoadingUI();
+    // 장면과 카메라 구성
+    this._scene.detachControl(); // 초기화
+    let scene = new Scene(this._engine);
+    scene.clearColor = new Color4(0,0,0,1);
+    let camera = this._setupFreeCamera('camera1', Vector3.Zero(), scene,Vector3.Zero());
+  }
+
+
+  
 }
 new App();
