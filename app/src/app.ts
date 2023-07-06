@@ -2,8 +2,12 @@ import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 import "@babylonjs/loaders/glTF";
 
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder, Color4, FreeCamera } from "@babylonjs/core";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder, Color4, FreeCamera, Matrix, Quaternion, StandardMaterial, Color3, PointLight, ShadowGenerator } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Button, Control } from "@babylonjs/gui";
+
+import { Environment } from './environment';
+import { Player } from "./characterController";
+
 //enum for states
 enum State { START = 0, GAME = 1, LOSE = 2, CUTSCENE = 3 }
 
@@ -11,11 +15,14 @@ class App {
   private _canvas : HTMLCanvasElement;
   private _engine : Engine;
   private _scene : Scene;
+
   private _cutScene : Scene;
   private _gamescene : Scene;
-  
-
   private _state : State = State.START;// private _state : number = 0;
+
+  public assets;
+  private _environment : Environment;
+  private _player : Player;
 
   constructor() {
 
@@ -207,13 +214,6 @@ class App {
     })
   }
  
-  private async _setUpGame():Promise<void>{
-    let scene = new Scene(this._engine);
-    this._gamescene = scene;
-
-    // loading assets...
-  }
-
   private async _goToGame():Promise<void>{
   
     // -- setup scene
@@ -248,14 +248,33 @@ class App {
     var light1: HemisphericLight = new HemisphericLight("light1", new Vector3(1, 1, 0), scene);
     var sphere: Mesh = MeshBuilder.CreateSphere("sphere", { diameter: 1 }, scene);
 
+    //await this._initializeGameAsync(scene);
+
     // 장면 준비 완료 -> 로딩UI 숨기기 -> 저장된 장면 삭제 -> 새로운 장면으로 전환
     await scene.whenReadyAsync();
+    //scene.getMeshByName("outer").position = new Vector3(0,3,0);
     this._engine.hideLoadingUI();
     this._scene.dispose();
     this._state = State.GAME;
     this._scene = scene;
     //the game is ready, attach control back
     this._scene.attachControl();
+  }
+
+  private async _initializeGameAsync(scene: Scene):Promise<void> {
+    //temporary light to light the entire scene
+    var light0 = new HemisphericLight("HemiLight", new Vector3(0, 1, 0), scene);
+
+    const light = new PointLight("sparklight", new Vector3(0, 0, 0), scene);
+    light.diffuse = new Color3(0.08627450980392157, 0.10980392156862745, 0.15294117647058825);
+    light.intensity = 35;
+    light.radius = 1;
+
+    const shadowGenerator = new ShadowGenerator(1024, light);
+    shadowGenerator.darkness = 0.4;
+
+    // create the player
+    this._player = new Player(this.assets, scene, shadowGenerator);
   }
 
   private async _goToLose():Promise<void> {
@@ -283,6 +302,62 @@ class App {
     this._scene.dispose();
     this._scene = scene;
     this._state = State.LOSE;
+  }
+
+  private async _setUpGame():Promise<void>{
+    let scene = new Scene(this._engine);
+    this._gamescene = scene;
+
+    // loading assets...
+    
+    // 환경 구성
+    const environment = new Environment(scene);
+    this._environment = environment;
+    await this._environment._load();
+
+    // charactor 불러오기
+    await this._loadCharacterAssets(scene);
+  }
+
+  private async _loadCharacterAssets(scene: Scene) {
+    async function loadCharacter(){
+      //collision mesh
+      const outer = MeshBuilder.CreateBox("outer", { width: 2, depth: 1, height: 3 }, scene);
+      outer.isVisible = false;
+      outer.isPickable = false;
+      outer.checkCollisions = true;
+      //move origin of box collider to the bottom of the mesh (to match imported player mesh)
+      outer.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0));
+
+      //for collisions
+      outer.ellipsoid = new Vector3(1, 1.5, 1);
+      outer.ellipsoidOffset = new Vector3(0, 1.5, 0);
+
+      outer.rotationQuaternion = new Quaternion(0, 1, 0, 0); // rotate the player mesh 180 since we want to see the back of the player
+
+      var box = MeshBuilder.CreateBox("Small1", { width: 0.5, depth: 0.5, height: 0.25, faceColors: [new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1)] }, scene);
+      box.position.y = 1.5;
+      box.position.z = 1;
+
+      var body = MeshBuilder.CreateCylinder("body", {height:3,diameterTop:2,diameterBottom:2,sideOrientation:Mesh.DOUBLESIDE}, scene);
+      var bodymtl = new StandardMaterial("red", scene);
+      bodymtl.diffuseColor = new Color3(0.8, 0.5, 0.5);
+      body.material = bodymtl;
+      body.isPickable = false;
+      body.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0)); // simulates the imported mesh's origin
+
+      //parent the meshes
+      box.parent = body;
+      body.parent = outer;
+
+      return {
+        mesh:outer as Mesh
+      }
+    }
+
+    loadCharacter().then(assets=>{
+      this.assets = assets;
+    });
   }
 
 }
