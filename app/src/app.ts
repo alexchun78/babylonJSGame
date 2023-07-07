@@ -21,7 +21,7 @@ class App {
   private _state : State = State.START;// private _state : number = 0;
 
   public assets;
-  private _environment : Environment;
+  private _environment;
   private _player : Player;
 
   constructor() {
@@ -32,9 +32,9 @@ class App {
     this._engine = new Engine(this._canvas, true);
     this._scene = new Scene(this._engine);
     
-    var camera = this._setupArcRotateCamera();
-    var light1 = this._setupLight();
-    var model = this._setupModel();
+    // var camera = this._setupArcRotateCamera();
+    // var light1 = this._setupLight();
+    // var model = this._setupModel();
 
     this._addEvent();
     this._render();
@@ -42,17 +42,17 @@ class App {
 
   private _createCanvas(): HTMLCanvasElement {
     //Commented out for development
-    document.documentElement.style["overflow"] = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.width = "100%";
-    document.documentElement.style.height = "100%";
-    document.documentElement.style.margin = "0";
-    document.documentElement.style.padding = "0";
-    document.body.style.overflow = "hidden";
-    document.body.style.width = "100%";
-    document.body.style.height = "100%";
-    document.body.style.margin = "0";
-    document.body.style.padding = "0";
+   document.documentElement.style["overflow"] = "hidden";
+   document.documentElement.style.overflow = "hidden";
+   document.documentElement.style.width = "100%";
+   document.documentElement.style.height = "100%";
+   document.documentElement.style.margin = "0";
+   document.documentElement.style.padding = "0";
+   document.body.style.overflow = "hidden";
+   document.body.style.width = "100%";
+   document.body.style.height = "100%";
+   document.body.style.margin = "0";
+   document.body.style.padding = "0";
 
     //create the canvas html element and attach it to the webpage
     this._canvas = document.createElement("canvas");
@@ -171,6 +171,7 @@ class App {
     this._scene.dispose();
     this._scene = scene;
     this._state = State.START;
+    this._scene.attachControl();
   }
 
   private async _goToCutScene():Promise<void>{
@@ -198,6 +199,7 @@ class App {
     // // 핸들러 추가
     nextBtn.onPointerDownObservable.add(()=> {
       this._goToGame();
+      this._cutScene.detachControl(); // 마우스 중복 클릭 방지
     }); 
 
     // 장면 준비 완료 -> 로딩UI 숨기기 -> 저장된 장면 삭제 -> 새로운 장면으로 전환
@@ -206,6 +208,7 @@ class App {
     this._scene.dispose();
     this._scene = this._cutScene;
     this._state = State.CUTSCENE;
+    this._scene.attachControl();
 
     // 리소스 셋업 후 loading 완료
     var finishedLoading = false;
@@ -220,8 +223,8 @@ class App {
     this._scene.detachControl();
     let scene = this._gamescene;
     scene.clearColor = new Color4(0.01568627450980392, 0.01568627450980392, 0.20392156862745098); // a color that fit the overall color scheme better
-    let camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), scene);
-    camera.setTarget(Vector3.Zero());
+    // let camera: ArcRotateCamera = new ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 2, Vector3.Zero(), scene);
+    // camera.setTarget(Vector3.Zero());
     
     //--GUI--
     const playerUI = AdvancedDynamicTexture.CreateFullscreenUI("UI");
@@ -245,10 +248,10 @@ class App {
     });
 
     //temporary scene objects
-    var light1: HemisphericLight = new HemisphericLight("light1", new Vector3(1, 1, 0), scene);
-    var sphere: Mesh = MeshBuilder.CreateSphere("sphere", { diameter: 1 }, scene);
+    // var light1: HemisphericLight = new HemisphericLight("light1", new Vector3(1, 1, 0), scene);
+    // var sphere: Mesh = MeshBuilder.CreateSphere("sphere", { diameter: 1 }, scene);
 
-    //await this._initializeGameAsync(scene);
+    await this._initializeGameAsync(scene);
 
     // 장면 준비 완료 -> 로딩UI 숨기기 -> 저장된 장면 삭제 -> 새로운 장면으로 전환
     await scene.whenReadyAsync();
@@ -294,6 +297,7 @@ class App {
     //this handles interactions with the start button attached to the scene
     mainBtn.onPointerUpObservable.add(() => {
         this._goToStart();
+        scene.detachControl(); //observables disabled
     });
 
     // 장면 준비 완료 -> 로딩UI 숨기기 -> 저장된 장면 삭제 -> 새로운 장면으로 전환
@@ -302,6 +306,7 @@ class App {
     this._scene.dispose();
     this._scene = scene;
     this._state = State.LOSE;
+    this._scene.attachControl();
   }
 
   private async _setUpGame():Promise<void>{

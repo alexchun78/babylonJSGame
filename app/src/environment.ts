@@ -1,4 +1,4 @@
-import { MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
+import { Mesh, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
 
 export class Environment {
     private _scene : Scene;
@@ -7,8 +7,9 @@ export class Environment {
         this._scene = scene;
     }
 
-    public async _load():Promise<void>{
+    public async _load(){
+        //var ground = Mesh.CreateBox("ground", 24, this._scene);
         let ground = MeshBuilder.CreateBox("ground", {size:24},this._scene);
-        ground.scaling = new Vector3(1,0.02,1);
+        ground.scaling = new Vector3(1,.02,1);
     }
 }
