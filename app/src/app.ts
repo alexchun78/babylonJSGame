@@ -7,6 +7,7 @@ import { AdvancedDynamicTexture, Button, Control } from "@babylonjs/gui";
 
 import { Environment } from './environment';
 import { Player } from "./characterController";
+import { PlayerInput } from "./inputController";
 
 //enum for states
 enum State { START = 0, GAME = 1, LOSE = 2, CUTSCENE = 3 }
@@ -23,6 +24,7 @@ class App {
   public assets;
   private _environment;
   private _player : Player;
+  private _input : PlayerInput;
 
   constructor() {
 
@@ -243,9 +245,12 @@ class App {
 
     //this handles interactions with the start button attached to the scene
     loseBtn.onPointerDownObservable.add(() => {
-        this._goToLose();
-        scene.detachControl(); //observables disabled
+      this._goToLose();
+      scene.detachControl(); //observables disabled
     });
+
+    //--INPUT--
+    this._input = new PlayerInput(scene);
 
     //temporary scene objects
     // var light1: HemisphericLight = new HemisphericLight("light1", new Vector3(1, 1, 0), scene);
@@ -275,9 +280,11 @@ class App {
 
     const shadowGenerator = new ShadowGenerator(1024, light);
     shadowGenerator.darkness = 0.4;
-
+ 
     // create the player
-    this._player = new Player(this.assets, scene, shadowGenerator);
+    this._player = new Player(this.assets, scene, shadowGenerator, this._input);
+    const camera = this._player.activePlayerCamera();
+
   }
 
   private async _goToLose():Promise<void> {
