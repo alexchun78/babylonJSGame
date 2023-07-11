@@ -18,8 +18,8 @@ export class Player extends TransformNode  {
   private static readonly PLAYER_SPEED: number = 0.45;
   private static readonly JUMP_FORCE: number = 0.80;
   private static readonly GRAVITY: number = -2.8;
+  private static readonly DASH_TIME: number = 10;
   private static readonly DASH_FACTOR: number = 2.5;
-  private static readonly DASH_TIME: number = 10; //how many frames the dash lasts
 
   // player movement
   private _deltaTime: number = 0; 
@@ -33,9 +33,10 @@ export class Player extends TransformNode  {
   private _grounded: boolean;
   private _lastGroundPos: Vector3 = Vector3.Zero(); // keep track of the last grounded position
   private _jumpCount: number = 1;
-  private _dashPressed: boolean;
-  private _canDash: boolean = true;
+  private _canDash: boolean = true; 
   public dashTime: number = 0;
+  private _dashPressed: boolean;
+
 
   constructor(assets, scene:Scene, shadowGenerator:ShadowGenerator,input?){
     super("Player", scene);
@@ -45,6 +46,8 @@ export class Player extends TransformNode  {
 
     this.mesh = assets.mesh;
     this.mesh.parent = this;
+
+    this.scene.getLightByName("sparklight").parent = this.scene.getTransformNodeByName("Empty");
 
     shadowGenerator.addShadowCaster(assets.mesh);
 
@@ -77,8 +80,8 @@ export class Player extends TransformNode  {
         dashFactor = Player.DASH_FACTOR;
       }
       this.dashTime++;
-    }
-    
+    }    
+
     // (2) camRoot의 위치값을 이용해 이동 벡터값 도출
     let fwd = this._camRoot.forward;
     let right = this._camRoot.right;
@@ -88,7 +91,8 @@ export class Player extends TransformNode  {
     let move_normal = move.normalize();
 
     // (3) Y축을 0으로 지정, X/Z축 내 방향 도출
-    this._moveDirection = new Vector3(move_normal.x*dashFactor, 0, move_normal.z*dashFactor);
+    //this._moveDirection = new Vector3(move_normal.x, 0, move_normal.z);
+    this._moveDirection = new Vector3(move_normal.x * dashFactor, 0, move_normal.z * dashFactor);
 
     // (4) 키보드 누른 시간 측정을 통해 입력 강도 추출
     let inputMag = Math.abs(this._h) + Math.abs(this._v);
@@ -152,16 +156,16 @@ export class Player extends TransformNode  {
   }
 
   private _updateGroundDetection(): void {
+
     // (1) 바닥에 붙어 있는 지 여부 확인 -> 중력 벡터 입력
     if (!this._isGround()) {
-      //if the body isnt grounded, check if it's on a slope and was either falling or walking onto it
-      if (this._checkSlope() && this._gravity.y <= 0) {
+      // slope에 있는 지 여부 확인
+      if(this._checkSlope() && this._gravity.y <= 0 ){
         //if you are considered on a slope, you're able to jump and gravity wont affect you
         this._gravity.y = 0;
         this._jumpCount = 1;
         this._grounded = true;
       } else {
-        //keep applying gravity
         this._gravity = this._gravity.addInPlace(Vector3.Up().scale(this._deltaTime * Player.GRAVITY));
         this._grounded = false;
       }
@@ -170,7 +174,7 @@ export class Player extends TransformNode  {
     // (2) 중력을 아래로 향하게 방향 수정 → mesh.moveWithCollisions()로 중력 적용 → 이동
     //limit the speed of gravity to the negative of the jump power
     if (this._gravity.y < -Player.JUMP_FORCE) {
-        this._gravity.y = -Player.JUMP_FORCE;
+      this._gravity.y = -Player.JUMP_FORCE;
     }
     this.mesh.moveWithCollisions(this._moveDirection.addInPlace(this._gravity));
   
@@ -180,43 +184,27 @@ export class Player extends TransformNode  {
       this._grounded = true;
       this._lastGroundPos.copyFrom(this.mesh.position);
 
-      this._jumpCount = 1; //allow for jumping
-
-      let dashFactor = 1;
-      //if you're dashing, scale movement
-      if (this._dashPressed) {
-        if (this.dashTime > Player.DASH_TIME) {
-          this.dashTime = 0;
-          this._dashPressed = false;
-        } else {
-          dashFactor = Player.DASH_FACTOR;
-        }
-        this.dashTime++;
-      }        
+      this._jumpCount = 1;
+      //dashing reset
+      this._canDash = true; //the ability to dash
+      //reset sequence(needed if we collide with the ground BEFORE actually completing the dash duration)
+      this.dashTime = 0;
+      this._dashPressed = false;
     }
-    
-    //Jump detection
-    if (this._input.jumpKeyDown && this._jumpCount > 0) {
+
+    // jump detection
+    if(this._input.jumpKeyDown && this._jumpCount > 0){
       this._gravity.y = Player.JUMP_FORCE;
       this._jumpCount--;
     }
   }
 
-  public activePlayerCamera(): UniversalCamera {
-
-    this.scene.registerBeforeRender(()=>{
-      this._beforeRenderUpdate();
-      this._updateCamera();
-    });
-    return this.camera;
-  }
-
-  //check stair 전체 코드
+ //check stair 전체 코드
   private _checkSlope(): boolean {
 
     //only check meshes that are pickable and enabled (specific for collision meshes that are invisible)
     let predicate = function (mesh) {
-        return mesh.isPickable && mesh.isEnabled();
+      return mesh.isPickable && mesh.isEnabled();
     }
 
     //4 raycasts outward from center
@@ -256,6 +244,16 @@ export class Player extends TransformNode  {
         }
     }
     return false;
+  }
+
+
+  public activatePlayerCamera(): UniversalCamera {
+
+    this.scene.registerBeforeRender(()=>{
+      this._beforeRenderUpdate();
+      this._updateCamera();
+    });
+    return this.camera;
   }
 
   private _beforeRenderUpdate() {

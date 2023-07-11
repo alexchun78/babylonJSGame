@@ -2,7 +2,7 @@ import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 import "@babylonjs/loaders/glTF";
 
-import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder, Color4, FreeCamera, Matrix, Quaternion, StandardMaterial, Color3, PointLight, ShadowGenerator } from "@babylonjs/core";
+import { Engine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder, Color4, FreeCamera, Matrix, Quaternion, StandardMaterial, Color3, PointLight, ShadowGenerator, SceneLoader } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Button, Control } from "@babylonjs/gui";
 
 import { Environment } from './environment';
@@ -199,9 +199,9 @@ class App {
     cutScene.addControl(nextBtn);
 
     // // 핸들러 추가
-    nextBtn.onPointerDownObservable.add(()=> {
-      this._goToGame();
-      this._cutScene.detachControl(); // 마우스 중복 클릭 방지
+    nextBtn.onPointerUpObservable.add(()=> {
+      //this._goToGame();
+      //this._cutScene.detachControl(); // 마우스 중복 클릭 방지
     }); 
 
     // 장면 준비 완료 -> 로딩UI 숨기기 -> 저장된 장면 삭제 -> 새로운 장면으로 전환
@@ -216,6 +216,7 @@ class App {
     var finishedLoading = false;
     await this._setUpGame().then(res =>{
       finishedLoading = true;
+      this._goToGame();
     })
   }
  
@@ -261,6 +262,7 @@ class App {
     // 장면 준비 완료 -> 로딩UI 숨기기 -> 저장된 장면 삭제 -> 새로운 장면으로 전환
     await scene.whenReadyAsync();
     //scene.getMeshByName("outer").position = new Vector3(0,3,0);
+    scene.getMeshByName("outer").position = scene.getTransformNodeByName("startPosition").getAbsolutePosition(); //move the player to the start position
     this._engine.hideLoadingUI();
     this._scene.dispose();
     this._state = State.GAME;
@@ -283,7 +285,7 @@ class App {
  
     // create the player
     this._player = new Player(this.assets, scene, shadowGenerator, this._input);
-    const camera = this._player.activePlayerCamera();
+    const camera = this._player.activatePlayerCamera();
 
   }
 
@@ -325,7 +327,7 @@ class App {
     // 환경 구성
     const environment = new Environment(scene);
     this._environment = environment;
-    await this._environment._load();
+    await this._environment.load();
 
     // charactor 불러오기
     await this._loadCharacterAssets(scene);
@@ -347,27 +349,41 @@ class App {
 
       outer.rotationQuaternion = new Quaternion(0, 1, 0, 0); // rotate the player mesh 180 since we want to see the back of the player
 
-      var box = MeshBuilder.CreateBox("Small1", { width: 0.5, depth: 0.5, height: 0.25, faceColors: [new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1)] }, scene);
-      box.position.y = 1.5;
-      box.position.z = 1;
+      return SceneLoader.ImportMeshAsync(null, "./models/", "player.glb", scene).then((result) =>{
+        const root = result.meshes[0];
+        //body is our actual player mesh
+        const body = root;
+        body.parent = outer;
+        body.isPickable = false; //so our raycasts dont hit ourself
+        body.getChildMeshes().forEach(m => {
+            m.isPickable = false;
+        })
+    
+        return {
+            mesh: outer as Mesh,
+        }
+      });
+      // var box = MeshBuilder.CreateBox("Small1", { width: 0.5, depth: 0.5, height: 0.25, faceColors: [new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1), new Color4(0, 0, 0, 1)] }, scene);
+      // box.position.y = 1.5;
+      // box.position.z = 1;
 
-      var body = MeshBuilder.CreateCylinder("body", {height:3,diameterTop:2,diameterBottom:2,sideOrientation:Mesh.DOUBLESIDE}, scene);
-      var bodymtl = new StandardMaterial("red", scene);
-      bodymtl.diffuseColor = new Color3(0.8, 0.5, 0.5);
-      body.material = bodymtl;
-      body.isPickable = false;
-      body.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0)); // simulates the imported mesh's origin
+      // var body = MeshBuilder.CreateCylinder("body", {height:3,diameterTop:2,diameterBottom:2,sideOrientation:Mesh.DOUBLESIDE}, scene);
+      // var bodymtl = new StandardMaterial("red", scene);
+      // bodymtl.diffuseColor = new Color3(0.8, 0.5, 0.5);
+      // body.material = bodymtl;
+      // body.isPickable = false;
+      // body.bakeTransformIntoVertices(Matrix.Translation(0, 1.5, 0)); // simulates the imported mesh's origin
 
-      //parent the meshes
-      box.parent = body;
-      body.parent = outer;
+      // //parent the meshes
+      // box.parent = body;
+      // body.parent = outer;
 
-      return {
-        mesh:outer as Mesh
-      }
+      // return {
+      //   mesh:outer as Mesh
+      // }
     }
 
-    loadCharacter().then(assets=>{
+    return loadCharacter().then(assets=>{
       this.assets = assets;
     });
   }
