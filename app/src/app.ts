@@ -287,6 +287,9 @@ class App {
     this._player = new Player(this.assets, scene, shadowGenerator, this._input);
     const camera = this._player.activatePlayerCamera();
 
+    //set up lantern collision checks
+    this._environment.checkLanterns(this._player);
+
   }
 
   private async _goToLose():Promise<void> {
